@@ -317,17 +317,24 @@ def write_xml(logger, channel_list, programme_list):
         channels_tree.write(CACHE_FOLDER + 'channels.xml', encoding='utf-8', xml_declaration=True)
         logger.info("write_xml() channels, %d" % (len(channel_list)))
     except Exception as e:
-        logger.error('ERROR in write_xml()', exc_info=True)
-
-    for programme in programme_list:
-        programme.to_et_sub_element(tv)
-
-    tree = ET.ElementTree(tv)
+        logger.error('ERROR in prepare channels in write_xml()', exc_info=True)
 
     if os.path.exists(EPG_ALL_CACHE_FILE_PATH):
+        logger.info("write_xml() remove existing file, %s" % EPG_ALL_CACHE_FILE_PATH)
         os.remove(EPG_ALL_CACHE_FILE_PATH)
 
-    tree.write(EPG_ALL_CACHE_FILE_PATH, encoding='utf-8', xml_declaration=True)
+    try:
+        for programme in programme_list:
+            programme.to_et_sub_element(tv)
+    except Exception as e:
+        logger.error('ERROR in prepare programme in write_xml()', exc_info=True)
+
+    try:
+        tree = ET.ElementTree(tv)
+        tree.write(EPG_ALL_CACHE_FILE_PATH, encoding='utf-8', xml_declaration=True)
+    except Exception as e:
+        logger.error('ERROR in write all in write_xml()', exc_info=True)
+
     file_size = os.path.getsize(EPG_ALL_CACHE_FILE_PATH)
     logger.info("write_xml(%s) done, file size: %s (%s)" % (EPG_ALL_CACHE_FILE_PATH, file_size, sizeof_fmt(file_size)))
     return EPG_ALL_CACHE_FILE_PATH
