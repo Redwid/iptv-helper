@@ -1,2 +1,5 @@
-/.env
 /iptv-helper.iml
+/.env
+/.cache/
+/.idea/
+/venv/
