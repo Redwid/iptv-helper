@@ -4,7 +4,7 @@ import io
 import os
 from datetime import datetime
 
-from flask import Flask, request, Response, make_response
+from flask import Flask, request, send_file, make_response
 from utils import download_file, get_header_time, md5_string, download_all_epgs, M3U_CACHE_FILE_PATH, \
     M3U_FILE, filter_epg, EPG_ALL_CACHE_FILE_PATH
 from logger import get_logger
@@ -46,6 +46,12 @@ def epg_filter():
 def epg():
     logger.info('/epg')
     return return_file_response(request, EPG_ALL_CACHE_FILE_PATH)
+
+
+@app.route('/epg2', methods=['GET'])
+def epg2():
+    logger.info('/epg2')
+    return send_file(EPG_ALL_CACHE_FILE_PATH)
 
 
 @app.route('/epg.gz', methods=['GET'])
