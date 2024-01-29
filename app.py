@@ -6,7 +6,7 @@ from datetime import datetime
 
 from flask import Flask, request, send_file, make_response
 from utils import download_file, get_header_time, md5_string, download_all_epgs, M3U_CACHE_FILE_PATH, \
-    M3U_FILE, filter_epg, EPG_ALL_CACHE_FILE_PATH
+    M3U_FILE, filter_epg, EPG_ALL_CACHE_FILE_PATH, EPG_ALL_GZ_CACHE_FILE_PATH
 from logger import get_logger
 
 m3u_url = os.getenv('M3U_URL', "https://no-m3u-url-provided")
@@ -52,6 +52,12 @@ def epg():
 def epg2():
     logger.info('/epg2')
     return send_file(EPG_ALL_CACHE_FILE_PATH)
+
+
+@app.route('/epg2.gz', methods=['GET'])
+def epg2_gz():
+    logger.info('/epg2.gz')
+    return send_file(EPG_ALL_GZ_CACHE_FILE_PATH)
 
 
 @app.route('/epg.gz', methods=['GET'])

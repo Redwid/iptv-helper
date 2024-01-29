@@ -1,10 +1,12 @@
 #!/usr/bin/env python -*- coding: utf-8 -*-
 import gc
+import gzip
 import hashlib
 import logging, requests
 import codecs
 import os
 import json
+import shutil
 from datetime import datetime
 import time
 import glob
@@ -23,6 +25,7 @@ M3U_FILE = 'm3u.m3u'
 EPG_ALL_FILE = 'epg-all.xml'
 M3U_CACHE_FILE_PATH = CACHE_FOLDER + M3U_FILE
 EPG_ALL_CACHE_FILE_PATH = CACHE_FOLDER + EPG_ALL_FILE
+EPG_ALL_GZ_CACHE_FILE_PATH = CACHE_FOLDER + EPG_ALL_FILE + '.gz'
 
 
 def download_file(logger, url, file_name):
@@ -337,6 +340,13 @@ def write_xml_plain_text(logger, channel_list, programme_list):
 
     file_size = os.path.getsize(EPG_ALL_CACHE_FILE_PATH)
     logger.info("write_xml_plain_text(%s) done, file size: %s (%s)" % (EPG_ALL_CACHE_FILE_PATH, file_size, sizeof_fmt(file_size)))
+
+    with open(EPG_ALL_CACHE_FILE_PATH, 'rb') as f_in:
+        with gzip.open(EPG_ALL_GZ_CACHE_FILE_PATH, 'wb') as f_out:
+            shutil.copyfileobj(f_in, f_out)
+    file_size = os.path.getsize(EPG_ALL_GZ_CACHE_FILE_PATH)
+    logger.info("write_xml_plain_text(%s) done, file size: %s (%s)" % (EPG_ALL_GZ_CACHE_FILE_PATH, file_size, sizeof_fmt(file_size)))
+
     return EPG_ALL_CACHE_FILE_PATH
 
 
