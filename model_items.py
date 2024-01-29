@@ -91,6 +91,21 @@ class ChannelItem:
         if self.icon is not None:
             ET.SubElement(item, 'icon').text = self.icon
 
+    def to_xml_string(self):
+        result = "\t<channel id=\"{id}\">\n".format(id=self.id)
+        for display_name in self.display_name_list:
+            if display_name.lang is None:
+                result += "\t\t<display-name>{name}</display-name>\n".format(name=xml_escape(display_name.text))
+            else:
+                result += "\t\t<display-name lang=\"{lang}\">{name}</display-name>\n".format(name=xml_escape(display_name.text), lang=xml_escape(display_name.lang))
+
+        if self.icon is not None:
+            result += "\t\t<icon src=\"{url}\"/>\n".format(url=xml_escape(self.icon))
+
+        result += "\t</channel>\n"
+        return result
+
+
     def get_display_name(self):
         for display_name in self.display_name_list:
             return display_name
@@ -146,9 +161,36 @@ class ProgrammeItem:
         for category in self.category_list:
             add_sub_element('category', category, item)
 
+    def to_xml_string(self):
+        result = "\t<programme start=\"{start}\" stop=\"{stop}\" channel=\"{id}\">\n".format(start=self.start, stop=self.stop, id=self.channel)
+        for title in self.title_list:
+            if title.lang is None:
+                result += "\t\t<title>{name}</title>\n".format(name=xml_escape(title.text))
+            else:
+                result += "\t\t<title lang=\"{lang}\">{name}</title>\n".format(name=xml_escape(title.text), lang=title.lang)
+
+        for desc in self.desc_list:
+            if desc.lang is None:
+                result += "\t\t<desc>{name}</desc>\n".format(name=xml_escape(desc.text))
+            else:
+                result += "\t\t<desc lang=\"{lang}\">{name}</desc>\n".format(name=xml_escape(desc.text), lang=desc.lang)
+
+        result += "\t</programme>\n"
+        return result
+
 
 def add_sub_element(name, item, root):
     if item.lang is not None:
         ET.SubElement(root, name, lang=item.lang).text = item.text
     else:
         ET.SubElement(root, name).text = item.text
+
+
+def xml_escape(str_xml: str):
+    str_xml = str_xml.replace("&", "&amp;")
+    str_xml = str_xml.replace("<", "&lt;")
+    str_xml = str_xml.replace(">", "&gt;")
+    str_xml = str_xml.replace("\"", "&quot;")
+    str_xml = str_xml.replace("'", "&apos;")
+    return str_xml
+

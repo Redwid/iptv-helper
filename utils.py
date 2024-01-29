@@ -304,34 +304,70 @@ def load_xmlt(logger, m3u_entries, epg_file, channel_list, programme_list):
     gc.collect()
 
 
+def write_xml_plain_text(logger, channel_list, programme_list):
+    logger.info('write_xml_plain_text()')
+
+    if os.path.exists(EPG_ALL_CACHE_FILE_PATH):
+        logger.info("write_xml_plain_text() remove existing file, %s" % EPG_ALL_CACHE_FILE_PATH)
+        os.remove(EPG_ALL_CACHE_FILE_PATH)
+
+    f = open(EPG_ALL_CACHE_FILE_PATH, 'w')
+    f.write("<?xml version='1.0' encoding='UTF-8'?>\n")
+    f.write("<tv>\n")
+
+    logger.info('write_xml_plain_text() prepare channels list')
+    try:
+        for channel_item in channel_list:
+            f.write(channel_item.to_xml_string())
+        logger.info('write_xml_plain_text() channel_list size: %d' % len(channel_list))
+    except Exception as e:
+        logger.error('ERROR in prepare programme in write_xml()', exc_info=True)
+
+    logger.info('write_xml() prepare programme_list')
+    try:
+        for programme in programme_list:
+            f.write(programme.to_xml_string())
+        logger.info('write_xml_plain_text() programme_list size: %d' % len(programme_list))
+    except Exception as e:
+        logger.error('ERROR in prepare programme in write_xml()', exc_info=True)
+
+    f.write("</tv>\n")
+    f.flush()
+    f.close()
+
+    file_size = os.path.getsize(EPG_ALL_CACHE_FILE_PATH)
+    logger.info("write_xml_plain_text(%s) done, file size: %s (%s)" % (EPG_ALL_CACHE_FILE_PATH, file_size, sizeof_fmt(file_size)))
+    return EPG_ALL_CACHE_FILE_PATH
+
+
 def write_xml(logger, channel_list, programme_list):
     logger.info('write_xml()')
-
-    tv = ET.Element('tv')
-
-    for channel_item in channel_list:
-        channel_item.to_et_sub_element(tv)
-
-    try:
-        channels_tree = ET.ElementTree(tv)
-        channels_tree.write(CACHE_FOLDER + 'channels.xml', encoding='utf-8', xml_declaration=True)
-        logger.info("write_xml() channels, %d" % (len(channel_list)))
-    except Exception as e:
-        logger.error('ERROR in prepare channels in write_xml()', exc_info=True)
 
     if os.path.exists(EPG_ALL_CACHE_FILE_PATH):
         logger.info("write_xml() remove existing file, %s" % EPG_ALL_CACHE_FILE_PATH)
         os.remove(EPG_ALL_CACHE_FILE_PATH)
 
+    tv = ET.Element('tv')
+
+    logger.info('write_xml() prepare channels list')
+    try:
+        for channel_item in channel_list:
+            channel_item.to_et_sub_element(tv)
+        logger.info('write_xml() channel_list size: %d' % len(channel_list))
+    except Exception as e:
+        logger.error('ERROR in prepare programme in write_xml()', exc_info=True)
+
+    logger.info('write_xml() prepare programme_list')
     try:
         for programme in programme_list:
             programme.to_et_sub_element(tv)
+        logger.info('write_xml() programme_list size: %d' % len(programme_list))
     except Exception as e:
         logger.error('ERROR in prepare programme in write_xml()', exc_info=True)
 
     try:
         tree = ET.ElementTree(tv)
-        tree.write(EPG_ALL_CACHE_FILE_PATH, encoding='utf-8', xml_declaration=True)
+        tree.write(EPG_ALL_CACHE_FILE_PATH, encoding='utf-8', xml_declaration=True, pretty_print=True)
     except Exception as e:
         logger.error('ERROR in write all in write_xml()', exc_info=True)
 
@@ -359,7 +395,7 @@ def filter_epg(logger):
     channel_list = []
     programme_list = []
     downloaded = sorted(glob.glob(CACHE_FOLDER + 'epg-*.xml'), key=os.path.getmtime)
-    # downloaded = [CACHE_FOLDER + 'epg-1.xml']
+    #downloaded = [CACHE_FOLDER + 'epg-1.xml']
 
     for file in downloaded:
         if EPG_ALL_FILE not in file:
@@ -392,5 +428,5 @@ def filter_epg(logger):
 
     # process_not_present_m3u_entries(not_present_m3u_entries, channel_list)
 
-    file_path = write_xml(logger, channel_list, programme_list)
+    file_path = write_xml_plain_text(logger, channel_list, programme_list)
     logger.info("filter_epg(), file_path: %s, done in: %s" % (file_path, time.time() - start_time))
