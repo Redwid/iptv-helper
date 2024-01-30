@@ -5,8 +5,7 @@ COPY ./requirements.txt /app/
 COPY ./cache/xmltv.dtd /app/cache/
 COPY ./*.py /app/
 RUN pip install --upgrade pip && \
-    pip install -r requirements.txt && \
-    mkdir -p /log
+    pip install -r requirements.txt
 
 EXPOSE 101
 CMD [ "python3", "-m" , "app"]
