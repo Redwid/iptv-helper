@@ -1,5 +1,8 @@
 /iptv-helper.iml
 /.env
-/cache/
+/cache/*.xml
+/cache/*.xml.gz
+/cache/m3u.*
+/cache/*.etag
 /.idea/
 /venv/
