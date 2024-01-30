@@ -145,7 +145,7 @@ def download_epg(logger, index, url, downloaded_list):
             file_name = xml_file_name
 
         downloaded_list.append(file_name)
-        logger.info("download_epg(%s), xml size: %s, time: %sms" % (url, sizeof_fmt(os.path.getsize(file_name)), time.time() - start_time))
+        logger.info("download_epg(%s), xml size: %s" % (url, sizeof_fmt(os.path.getsize(file_name))))
     except Exception as e:
         logger.error('ERROR in download_epg(%s) %s' % (url, e))
         traceback.print_exc()
