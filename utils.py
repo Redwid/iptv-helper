@@ -2,6 +2,8 @@
 import gc
 import gzip
 import hashlib
+import traceback
+
 import requests
 import codecs
 import os
@@ -235,13 +237,16 @@ def is_channel_present_in_list_by_id(channel_list, channel_item):
     return False
 
 
-def is_channel_present_in_m3u(channel_item, m3u_entries):
-    # if channel_item.id == '4770':
-    #     print('!')
+def is_channel_present_in_m3u(channel_item, m3u_entries, print_logs):
+    #if channel_item.id == 'ITV1Anglia.uk' and print_logs:
+    #     print("is_channel_present_in_m3u, channel_item: %s" % channel_item)
     return_value = False
     list = channel_item.display_name_list
     list_to_remove = []
     for value in m3u_entries:
+        #if print_logs:
+        #    print("is_channel_present_in_m3u, value: %s" % value)
+
         value_no_orig = None
         if ' orig' in value.name or ' Orig' in value.name:
             value_no_orig = value.name.replace(' orig', '').replace(' Orig', '')
@@ -259,12 +264,13 @@ def is_channel_present_in_m3u(channel_item, m3u_entries):
         #     value_no_uk = value.name.replace(' Anglia', ' UK')
 
         for display_name in list:
-            # if 'BACKUS TV HD' in value.name and 'BACKUS TV HD' in display_name.text:
-            #     print('!')
+
             if value_no_orig is not None and compare(display_name.text, value_no_orig):
                 insert_value_if_needed(list, value.name)
                 list_to_remove.append(value)
                 return_value = True
+                #if print_logs:
+                #    print("is_channel_present_in_m3u, match no_orig value: %s" % value.name)
                 break
 
             # if value_no_fhd is not None and compare(display_name.text, value_no_fhd):
@@ -285,10 +291,19 @@ def is_channel_present_in_m3u(channel_item, m3u_entries):
             if compare(display_name.text, value.name) or compare(display_name.text, value.tvg_name):
                 list_to_remove.append(value)
                 return_value = True
+                #if print_logs:
+                #    print("is_channel_present_in_m3u, match value: %s" % value.name)
                 break
+
+            # if 'itv 1 HD' in value.name or 'itv 1 HD' in display_name.text:
+            #     if return_value:
+            #         print('!')
 
     for value in list_to_remove:
         m3u_entries.remove(value)
+        #if "itv 1" in value.name:
+        #    print("is_channel_present_in_m3u, removing value: %s for channel_item: %s" % (value.name, channel_item))
+
 
     return return_value
 
@@ -304,21 +319,21 @@ def insert_value_if_needed(list, value_to_insert):
 
 def add_custom_entries(channel_item):
     if channel_item.id == 'ITV1Anglia.uk':
-        channel_item.display_name_list.append(NameItem('itv 1 HD'))
+        channel_item.display_name_list.append(NameItem('itv 1 HD', 'en'))
     if channel_item.id == 'ITV2.uk':
-        channel_item.display_name_list.append(NameItem('itv 2 HD'))
+        channel_item.display_name_list.append(NameItem('itv 2 HD', 'en'))
     if channel_item.id == 'ITV4.uk':
-        channel_item.display_name_list.append(NameItem('itv 4'))
+        channel_item.display_name_list.append(NameItem('itv 4', 'en'))
     if channel_item.id == 'ITV4Plus1.uk':
-        channel_item.display_name_list.append(NameItem('itv 4 +1'))
+        channel_item.display_name_list.append(NameItem('itv 4 +1', 'en'))
     if channel_item.id == 'ITV3Plus1.uk':
-        channel_item.display_name_list.append(NameItem('itv 3 +1'))
+        channel_item.display_name_list.append(NameItem('itv 3 +1', 'en'))
     if channel_item.id == 'ITVBe.uk':
-        channel_item.display_name_list.append(NameItem('itv BE'))
+        channel_item.display_name_list.append(NameItem('itv BE', 'en'))
     if channel_item.id == '1598':
-        channel_item.display_name_list.append(NameItem('Че!'))
+        channel_item.display_name_list.append(NameItem('Че!', 'ru'))
     if channel_item.id == '5kanal-ru-pl4':
-        channel_item.display_name_list.append(NameItem('5 канал +4'))
+        channel_item.display_name_list.append(NameItem('5 канал +4', 'ru'))
     pass
 
 
@@ -329,15 +344,25 @@ def load_xmlt(logger, m3u_entries, epg_file, channel_list, programme_list):
     for event, element in ET.iterparse(epg_file, tag=('channel', 'programme'), huge_tree=True):
         if element.tag == 'channel':
             channel_item = ChannelItem(element)
+            print_logs = False
+            #if channel_item.id == 'ITV1Anglia.uk':
+            #    logger.info("load_xmlt(%s), channel_item.id == ITV1Anglia.uk: %s" % (epg_file, channel_item))
+            #    print_logs = True
             add_custom_entries(channel_item)
 
             # value = is_channel_present_in_list_by_name(channel_list, channel_item)
-            channel_present = is_channel_present_in_m3u(channel_item, m3u_entries)
+            channel_present = is_channel_present_in_m3u(channel_item, m3u_entries, print_logs)
             if channel_present:
                 channel_list.append(channel_item)
                 # logger.info('load_xmlt(%s), channel_list size: %d' % (epg_file, len(channel_list)))
+            #else:
+            #    if channel_item.id == 'ITV1Anglia.uk':
+            #        logger.info("load_xmlt(%s) NOT ADDED, channel_item.id == ITV1Anglia.uk: %s" % (epg_file, channel_item))
 
         if element.tag == 'programme':
+            # if element.attrib['channel'] == 'ITV1Anglia.uk':
+            #     logger.info("load_xmlt(%s), element.attrib['channel'] == ITV1Anglia.uk: %s" % (epg_file, element))
+
             if is_channel_present_in_list_by_id(channel_list, element.attrib['channel']):
                 program_item = ProgrammeItem(element)
                 programme_list.append(program_item)
@@ -365,17 +390,24 @@ def write_xml_plain_text(logger, channel_list, programme_list, request_host):
     try:
         for channel_item in channel_list:
             f.write(channel_item.to_xml_string())
+            #if channel_item.id == 'ITV1Anglia.uk':
+            #    logger.info("write_xml_plain_text(), channel_item.id == ITV1Anglia.uk: %s" % channel_item)
         logger.info('write_xml_plain_text() channel_list size: %d' % len(channel_list))
     except Exception as e:
         logger.error('ERROR in prepare programme in write_xml()', exc_info=True)
+        traceback.print_exc()
+
 
     logger.info('write_xml() prepare programme_list')
     try:
         for programme in programme_list:
             f.write(programme.to_xml_string())
+            #if programme.channel == 'ITV1Anglia.uk':
+            #    logger.info("write_xml_plain_text(), programme.channel == ITV1Anglia.uk: %s" % programme)
         logger.info('write_xml_plain_text() programme_list size: %d' % len(programme_list))
     except Exception as e:
         logger.error('ERROR in prepare programme in write_xml()', exc_info=True)
+        traceback.print_exc()
 
     f.write("</tv>\n")
     f.flush()
@@ -432,6 +464,7 @@ def filter_epg(logger, request_host):
                 load_xmlt(logger, m3u_entries, file, channel_list, programme_list)
             except Exception as e:
                 logger.error('filter_epg(), unexpected exception: %s' % repr(e))
+                traceback.print_exc()
 
     logger.info('filter_epg(), m3u_entries: %d channel_list size: %d, programme_list: %d, time: %sms ' % (
     len(m3u_entries), len(channel_list), len(programme_list), time.time() - start_time))

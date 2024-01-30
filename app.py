@@ -1,11 +1,8 @@
 #!/usr/bin/env python -*- coding: utf-8 -*-
-import gzip
-import io
 import os
-from datetime import datetime
 
-from flask import Flask, request, send_file, make_response
-from utils import download_file, get_header_time, md5_string, download_all_epgs, M3U_CACHE_FILE_PATH, \
+from flask import Flask, request, send_file
+from utils import download_file, download_all_epgs, M3U_CACHE_FILE_PATH, \
     M3U_FILE, filter_epg, EPG_ALL_CACHE_FILE_PATH, EPG_ALL_GZ_CACHE_FILE_PATH, M3U_GZ_CACHE_FILE_PATH, gzip_file, \
     sizeof_fmt, CACHE_FOLDER
 from logger import get_logger
@@ -14,11 +11,12 @@ m3u_url = os.getenv('M3U_URL', "https://no-m3u-url-provided")
 tv_epg_urls = ['https://iptvx.one/epg/epg.xml.gz',
                'http://www.teleguide.info/download/new3/xmltv.xml.gz',
                'http://programtv.ru/xmltv.xml.gz',
-               'http://epg.it999.ru/edem.xml.gz',
                'https://raw.githubusercontent.com/dp247/Freeview-EPG/master/epg.xml',
                'http://downloads.epg.today/free/FreeRu-Cis.xml.gz',
                'http://downloads.epg.today/free/wefree.xml.gz',
-               'https://runigma.com.ua/EPG/IPTV/epg-iptv.xml.gz']
+               'https://runigma.com.ua/EPG/IPTV/epg-iptv.xml.gz',
+               'http://epg.it999.ru/edem.xml.gz'
+               ]
 
 
 app = Flask(__name__)

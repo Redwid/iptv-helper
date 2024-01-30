@@ -112,8 +112,8 @@ class ChannelItem:
         return ''
 
     def __str__(self):
-        return 'ChannelItem[id:' + str(self.id) + ', text:' + self.text + \
-               ', display_name_list:' + ', '.join(map(str, self.display_name_list)) + ', icon:' + self.icon + ']'
+        return 'ChannelItem[id:' + str(self.id) + ', text:' + str(self.text) + \
+               ', display_name_list:' + ', '.join(map(str, self.display_name_list)) + ', icon:' + str(self.icon) + ']'
 
 
 class NameItem:
