@@ -145,10 +145,11 @@ def download_epg(logger, index, url, downloaded_list):
             file_name = xml_file_name
 
         downloaded_list.append(file_name)
+        logger.info("download_epg(%s), xml size: %s, time: %sms" % (url, sizeof_fmt(os.path.getsize(file_name)), time.time() - start_time))
     except Exception as e:
         logger.error('ERROR in download_epg(%s) %s' % (url, e))
-    logger.info("download_epg(%s), xml size: %s, time: %sms" % (
-    url, sizeof_fmt(os.path.getsize(file_name)), time.time() - start_time))
+        traceback.print_exc()
+    logger.info("download_epg(%s), time: %sms" % (url, time.time() - start_time))
 
 
 def sizeof_fmt(num, suffix='B'):
@@ -301,9 +302,8 @@ def is_channel_present_in_m3u(channel_item, m3u_entries, print_logs):
 
     for value in list_to_remove:
         m3u_entries.remove(value)
-        #if "itv 1" in value.name:
+        # if "Global Toronto HD CA" in value.name:
         #    print("is_channel_present_in_m3u, removing value: %s for channel_item: %s" % (value.name, channel_item))
-
 
     return return_value
 
