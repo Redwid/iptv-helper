@@ -121,7 +121,7 @@ class NameItem:
         self.lang = lang
         self.text = text
         if xmlt_fields is not None and xmlt_fields.text is not None:
-            self.text = xmlt_fields.text
+            self.text = xmlt_fields.text.strip()
             if 'lang' in xmlt_fields.attrib:
                 self.lang = xmlt_fields.attrib['lang']
 

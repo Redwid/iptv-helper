@@ -51,13 +51,13 @@ def epg():
 @app.route('/epg2', methods=['GET'])
 def epg2():
     logger.info('/epg2')
-    return send_file(EPG_ALL_CACHE_FILE_PATH)
+    return send_file(EPG_ALL_CACHE_FILE_PATH, etag=True)
 
 
 @app.route('/epg2.gz', methods=['GET'])
 def epg2_gz():
     logger.info('/epg2.gz')
-    return send_file(EPG_ALL_GZ_CACHE_FILE_PATH)
+    return send_file(EPG_ALL_GZ_CACHE_FILE_PATH, etag=True)
 
 
 @app.route('/epg.gz', methods=['GET'])
