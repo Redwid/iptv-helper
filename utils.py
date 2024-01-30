@@ -25,6 +25,7 @@ CACHE_FOLDER = 'cache/'
 M3U_FILE = 'm3u.m3u'
 EPG_ALL_FILE = 'epg-all.xml'
 M3U_CACHE_FILE_PATH = CACHE_FOLDER + M3U_FILE
+M3U_GZ_CACHE_FILE_PATH = CACHE_FOLDER + M3U_FILE + '.gz'
 EPG_ALL_CACHE_FILE_PATH = CACHE_FOLDER + EPG_ALL_FILE
 EPG_ALL_GZ_CACHE_FILE_PATH = CACHE_FOLDER + EPG_ALL_FILE + '.gz'
 
@@ -63,7 +64,9 @@ def download_file(logger, url, file_name):
         for chunk in get_response.iter_content(chunk_size=1024 * 1024):
             if chunk:
                 f.write(chunk)
-    logger.info("download_file(%s) done: %s, file size: %d" % (url, file_name, os.path.getsize(file_name)))
+
+    file_size = os.path.getsize(file_name)
+    logger.info("download_file(%s) done: %s, file size: %d (%s)" % (url, file_name, file_size, sizeof_fmt(file_size)))
     return file_name
 
 
@@ -342,12 +345,11 @@ def load_xmlt(logger, m3u_entries, epg_file, channel_list, programme_list):
 
         element.clear()
 
-    logger.info('load_xmlt(%s), channel_list size: %d, programme_list: %d, time: %sms ' % (
-    epg_file, len(channel_list), len(programme_list), time.time() - start_time))
+    logger.info('load_xmlt(%s), channel_list size: %d, programme_list: %d, time: %sms ' % (epg_file, len(channel_list), len(programme_list), time.time() - start_time))
     gc.collect()
 
 
-def write_xml_plain_text(logger, channel_list, programme_list):
+def write_xml_plain_text(logger, channel_list, programme_list, request_host):
     logger.info('write_xml_plain_text()')
 
     if os.path.exists(EPG_ALL_CACHE_FILE_PATH):
@@ -356,7 +358,8 @@ def write_xml_plain_text(logger, channel_list, programme_list):
 
     f = open(EPG_ALL_CACHE_FILE_PATH, 'w')
     f.write("<?xml version='1.0' encoding='UTF-8'?>\n")
-    f.write("<tv>\n")
+    f.write("<!DOCTYPE tv SYSTEM \"http://{url}/xmltv.dtd\">\n".format(url=request_host))
+    f.write("<tv generator-info-name=\"iptv-helper\" generator-info-url=\"https://github.com/Redwid/iptv-helper\">\n")
 
     logger.info('write_xml_plain_text() prepare channels list')
     try:
@@ -379,53 +382,20 @@ def write_xml_plain_text(logger, channel_list, programme_list):
     f.close()
 
     file_size = os.path.getsize(EPG_ALL_CACHE_FILE_PATH)
-    logger.info("write_xml_plain_text(%s) done, file size: %s (%s)" % (
-    EPG_ALL_CACHE_FILE_PATH, file_size, sizeof_fmt(file_size)))
+    logger.info("write_xml_plain_text(%s) done, file size: %s (%s)" % (EPG_ALL_CACHE_FILE_PATH, file_size, sizeof_fmt(file_size)))
 
-    with open(EPG_ALL_CACHE_FILE_PATH, 'rb') as f_in:
-        with gzip.open(EPG_ALL_GZ_CACHE_FILE_PATH, 'wb') as f_out:
-            shutil.copyfileobj(f_in, f_out)
+    gzip_file(EPG_ALL_CACHE_FILE_PATH, EPG_ALL_GZ_CACHE_FILE_PATH)
+
     file_size = os.path.getsize(EPG_ALL_GZ_CACHE_FILE_PATH)
-    logger.info("write_xml_plain_text(%s) done, file size: %s (%s)" % (
-    EPG_ALL_GZ_CACHE_FILE_PATH, file_size, sizeof_fmt(file_size)))
+    logger.info("write_xml_plain_text(%s) done, file size: %s (%s)" % (EPG_ALL_GZ_CACHE_FILE_PATH, file_size, sizeof_fmt(file_size)))
 
     return EPG_ALL_CACHE_FILE_PATH
 
 
-def write_xml(logger, channel_list, programme_list):
-    logger.info('write_xml()')
-
-    if os.path.exists(EPG_ALL_CACHE_FILE_PATH):
-        logger.info("write_xml() remove existing file, %s" % EPG_ALL_CACHE_FILE_PATH)
-        os.remove(EPG_ALL_CACHE_FILE_PATH)
-
-    tv = ET.Element('tv')
-
-    logger.info('write_xml() prepare channels list')
-    try:
-        for channel_item in channel_list:
-            channel_item.to_et_sub_element(tv)
-        logger.info('write_xml() channel_list size: %d' % len(channel_list))
-    except Exception as e:
-        logger.error('ERROR in prepare programme in write_xml()', exc_info=True)
-
-    logger.info('write_xml() prepare programme_list')
-    try:
-        for programme in programme_list:
-            programme.to_et_sub_element(tv)
-        logger.info('write_xml() programme_list size: %d' % len(programme_list))
-    except Exception as e:
-        logger.error('ERROR in prepare programme in write_xml()', exc_info=True)
-
-    try:
-        tree = ET.ElementTree(tv)
-        tree.write(EPG_ALL_CACHE_FILE_PATH, encoding='utf-8', xml_declaration=True, pretty_print=True)
-    except Exception as e:
-        logger.error('ERROR in write all in write_xml()', exc_info=True)
-
-    file_size = os.path.getsize(EPG_ALL_CACHE_FILE_PATH)
-    logger.info("write_xml(%s) done, file size: %s (%s)" % (EPG_ALL_CACHE_FILE_PATH, file_size, sizeof_fmt(file_size)))
-    return EPG_ALL_CACHE_FILE_PATH
+def gzip_file(source_file, gz_file):
+    with open(source_file, 'rb') as f_in:
+        with gzip.open(gz_file, 'wb') as f_out:
+            shutil.copyfileobj(f_in, f_out)
 
 
 def process_not_present_m3u_entries(not_present_m3u_entries, channel_list):
@@ -443,8 +413,8 @@ def num_sort(test_string):
     return list(map(int, re.findall(r'\d+', test_string)))[0]
 
 
-def filter_epg(logger):
-    logger.info("filter_epg()")
+def filter_epg(logger, request_host):
+    logger.info("filter_epg(), request_host: %s" % request_host)
     start_time = time.time()
     m3u_entries = parse_m3u(logger, M3U_CACHE_FILE_PATH)
 
@@ -472,7 +442,5 @@ def filter_epg(logger):
         logger.info("   %d. %s" % (index, value))
         index += 1
 
-    # process_not_present_m3u_entries(not_present_m3u_entries, channel_list)
-
-    file_path = write_xml_plain_text(logger, channel_list, programme_list)
+    file_path = write_xml_plain_text(logger, channel_list, programme_list, request_host)
     logger.info("filter_epg(), file_path: %s, done in: %s" % (file_path, time.time() - start_time))
