@@ -3,6 +3,7 @@ import re
 # import xml.etree.ElementTree as ET
 from lxml import etree as ET
 
+# all_categories = []
 
 class M3uItem:
     def __init__(self, m3u_fields):
@@ -105,7 +106,6 @@ class ChannelItem:
         result += "\t</channel>\n"
         return result
 
-
     def get_display_name(self):
         for display_name in self.display_name_list:
             return display_name
@@ -163,6 +163,15 @@ class ProgrammeItem:
 
     def to_xml_string(self):
         result = "\t<programme start=\"{start}\" stop=\"{stop}\" channel=\"{id}\">\n".format(start=self.start, stop=self.stop, id=self.channel)
+        for category in self.category_list:
+            # if category.text not in all_categories:
+            #     all_categories.append(category.text)
+            #     print("category: " + category.text)
+            if category.lang is None:
+                result += "\t\t<category>{name}</category>\n".format(name=xml_escape(category.text))
+            else:
+                result += "\t\t<category lang=\"{lang}\">{name}</category>\n".format(name=xml_escape(category.text), lang=category.lang)
+
         for title in self.title_list:
             if title.lang is None:
                 result += "\t\t<title>{name}</title>\n".format(name=xml_escape(title.text))
