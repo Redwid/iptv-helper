@@ -1,7 +1,6 @@
 #!/usr/bin/env python -*- coding: utf-8 -*-
 import gc
 import gzip
-import hashlib
 import traceback
 
 import requests
@@ -10,7 +9,6 @@ import os
 import json
 import re
 import shutil
-from datetime import datetime
 import time
 import glob
 from sh import gunzip
@@ -25,9 +23,12 @@ from lxml import etree as ET
 CACHE_FOLDER = 'cache/'
 
 M3U_FILE = 'm3u.m3u'
+M3U_UPDATED_FILE = 'm3u-updated.m3u'
 EPG_ALL_FILE = 'epg-all.xml'
 M3U_CACHE_FILE_PATH = CACHE_FOLDER + M3U_FILE
+M3U_UPDATED_CACHE_FILE_PATH = CACHE_FOLDER + M3U_UPDATED_FILE
 M3U_GZ_CACHE_FILE_PATH = CACHE_FOLDER + M3U_FILE + '.gz'
+M3U_UPDATED_GZ_CACHE_FILE_PATH = CACHE_FOLDER + M3U_UPDATED_FILE + '.gz'
 EPG_ALL_CACHE_FILE_PATH = CACHE_FOLDER + EPG_ALL_FILE
 EPG_ALL_GZ_CACHE_FILE_PATH = CACHE_FOLDER + EPG_ALL_FILE + '.gz'
 
@@ -89,30 +90,6 @@ def store_last_modified_data(logger, file_name, headers):
     logger.info("store_last_modified_data(), data: %s" % (str(data)))
     with codecs.open(file_name, 'w', encoding='utf-8') as json_file:
         json_file.write(json.dumps(data))
-
-
-def get_header_time(logger, header_time):
-    formats = ['%a, %d %b %Y %H:%M:%S %Z', '%a %d %b %Y %H:%M:%S']
-    for item in formats:
-        try:
-            return datetime.strptime(header_time, item)
-        except:
-            pass
-    return None
-
-
-def md5_file(file_path):
-    hash_md5 = hashlib.md5()
-    with open(file_path, "rb") as f:
-        for chunk in iter(lambda: f.read(4096), b""):
-            hash_md5.update(chunk)
-    return hash_md5.hexdigest()
-
-
-def md5_string(string):
-    hash_md5 = hashlib.md5()
-    hash_md5.update(string)
-    return hash_md5.hexdigest()
 
 
 def download_all_epgs(logger, tv_epg_urls):
@@ -188,7 +165,7 @@ def parse_m3u(logger, file_name):
             entry = M3uItem(None)
 
     m3u_file.close()
-    logger.info('parse_m3u(%s), returning valid m3u_entries: %d' % (file_name, len(m3u_entries)))
+    logger.info('parse_m3u(%s), m3u_entries: %d' % (file_name, len(m3u_entries)))
     return m3u_entries
 
 
@@ -238,74 +215,11 @@ def is_channel_present_in_list_by_id(channel_list, channel_item):
     return False
 
 
-def is_channel_present_in_m3u(channel_item, m3u_entries, print_logs):
-    #if channel_item.id == 'ITV1Anglia.uk' and print_logs:
-    #     print("is_channel_present_in_m3u, channel_item: %s" % channel_item)
-    return_value = False
-    list = channel_item.display_name_list
-    list_to_remove = []
-    for value in m3u_entries:
-        #if print_logs:
-        #    print("is_channel_present_in_m3u, value: %s" % value)
-
-        value_no_orig = None
-        if ' orig' in value.name or ' Orig' in value.name:
-            value_no_orig = value.name.replace(' orig', '').replace(' Orig', '')
-
-        # value_no_fhd = None
-        # if ' FHD' in value.name:
-        #     value_no_fhd = value.name.replace(' FHD', ' HD')
-        #
-        # value_no_ua = None
-        # if ' UA' in value.name:
-        #     value_no_ua = value.name.replace(' UA', '')
-        #
-        # value_no_uk = None
-        # if ' Anglia' in value.name:
-        #     value_no_uk = value.name.replace(' Anglia', ' UK')
-
-        for display_name in list:
-
-            if value_no_orig is not None and compare(display_name.text, value_no_orig):
-                insert_value_if_needed(list, value.name)
-                list_to_remove.append(value)
-                return_value = True
-                #if print_logs:
-                #    print("is_channel_present_in_m3u, match no_orig value: %s" % value.name)
-                break
-
-            # if value_no_fhd is not None and compare(display_name.text, value_no_fhd):
-            #     insert_value_if_needed(list, value.name)
-            #     return_value = True
-            #     break
-            #
-            # if value_no_ua is not None and compare(display_name.text, value_no_ua):
-            #     insert_value_if_needed(list, value.name)
-            #     return_value = True
-            #     break
-            #
-            # if value_no_uk is not None and compare(display_name.text, value_no_uk):
-            #     insert_value_if_needed(list, value.name)
-            #     return_value = True
-            #     break
-
-            if compare(display_name.text, value.name) or compare(display_name.text, value.tvg_name):
-                list_to_remove.append(value)
-                return_value = True
-                #if print_logs:
-                #    print("is_channel_present_in_m3u, match value: %s" % value.name)
-                break
-
-            # if 'itv 1 HD' in value.name or 'itv 1 HD' in display_name.text:
-            #     if return_value:
-            #         print('!')
-
-    for value in list_to_remove:
-        m3u_entries.remove(value)
-        # if "Global Toronto HD CA" in value.name:
-        #    print("is_channel_present_in_m3u, removing value: %s for channel_item: %s" % (value.name, channel_item))
-
-    return return_value
+def is_channel_present_in_m3u(channel_item, m3u_list):
+    for value in m3u_list:
+        if value.process(channel_item):
+            return True
+    return False
 
 
 def insert_value_if_needed(list, value_to_insert):
@@ -337,48 +251,42 @@ def add_custom_entries(channel_item):
     pass
 
 
-def load_xmlt(logger, m3u_entries, epg_file, channel_list, programme_list):
-    logger.info("load_xmlt(%s), m3u_entries count: %d" % (epg_file, len(m3u_entries)))
+def load_xmlt(logger, m3u_list, epg_file, channel_map, programme_list):
+    logger.info("load_xmlt(%s)" % epg_file)
     start_time = time.time()
 
     for event, element in ET.iterparse(epg_file, tag=('channel', 'programme'), huge_tree=True):
         if element.tag == 'channel':
             channel_item = ChannelItem(element)
-            print_logs = False
-            #if channel_item.id == 'ITV1Anglia.uk':
-            #    logger.info("load_xmlt(%s), channel_item.id == ITV1Anglia.uk: %s" % (epg_file, channel_item))
-            #    print_logs = True
             add_custom_entries(channel_item)
 
-            # value = is_channel_present_in_list_by_name(channel_list, channel_item)
-            channel_present = is_channel_present_in_m3u(channel_item, m3u_entries, print_logs)
+            channel_present = is_channel_present_in_m3u(channel_item, m3u_list)
             if channel_present:
-                channel_list.append(channel_item)
+                channel_map[channel_item.id] = channel_item
                 # logger.info('load_xmlt(%s), channel_list size: %d' % (epg_file, len(channel_list)))
-            #else:
-            #    if channel_item.id == 'ITV1Anglia.uk':
-            #        logger.info("load_xmlt(%s) NOT ADDED, channel_item.id == ITV1Anglia.uk: %s" % (epg_file, channel_item))
 
         if element.tag == 'programme':
             # if element.attrib['channel'] == 'ITV1Anglia.uk':
             #     logger.info("load_xmlt(%s), element.attrib['channel'] == ITV1Anglia.uk: %s" % (epg_file, element))
 
-            if is_channel_present_in_list_by_id(channel_list, element.attrib['channel']):
+            channel_id = element.attrib['channel']
+            if channel_id in channel_map:
                 program_item = ProgrammeItem(element)
                 programme_list.append(program_item)
+                channel_map[channel_id].add_program(program_item)
                 # logger.info('load_xmlt(%s), programme_list size: %d' % (epg_file, len(programme_list)))
 
         element.clear()
 
-    logger.info('load_xmlt(%s), channel_list size: %d, programme_list: %d, time: %sms ' % (epg_file, len(channel_list), len(programme_list), time.time() - start_time))
+    logger.info('load_xmlt(%s), channel_map size: %d, programme_list: %d, time: %sms ' % (epg_file, len(channel_map), len(programme_list), time.time() - start_time))
     gc.collect()
 
 
-def write_xml_plain_text(logger, channel_list, programme_list, request_host):
-    logger.info('write_xml_plain_text()')
+def write_epg_xml(logger, channel_list, programme_list, request_host):
+    logger.info('write_epg_xml()')
 
     if os.path.exists(EPG_ALL_CACHE_FILE_PATH):
-        logger.info("write_xml_plain_text() remove existing file, %s" % EPG_ALL_CACHE_FILE_PATH)
+        logger.info("write_epg_xml() remove existing file, %s" % EPG_ALL_CACHE_FILE_PATH)
         os.remove(EPG_ALL_CACHE_FILE_PATH)
 
     f = open(EPG_ALL_CACHE_FILE_PATH, 'w')
@@ -386,27 +294,26 @@ def write_xml_plain_text(logger, channel_list, programme_list, request_host):
     f.write("<!DOCTYPE tv SYSTEM \"http://{url}/xmltv.dtd\">\n".format(url=request_host))
     f.write("<tv generator-info-name=\"iptv-helper\" generator-info-url=\"https://github.com/Redwid/iptv-helper\">\n")
 
-    logger.info('write_xml_plain_text() prepare channels list')
+    logger.info('write_epg_xml() prepare channels list')
     try:
         for channel_item in channel_list:
             f.write(channel_item.to_xml_string())
             #if channel_item.id == 'ITV1Anglia.uk':
             #    logger.info("write_xml_plain_text(), channel_item.id == ITV1Anglia.uk: %s" % channel_item)
-        logger.info('write_xml_plain_text() channel_list size: %d' % len(channel_list))
+        logger.info('write_epg_xml() channel_list size: %d' % len(channel_list))
     except Exception as e:
-        logger.error('ERROR in prepare programme in write_xml()', exc_info=True)
+        logger.error('ERROR in prepare programme in write_epg_xml()', exc_info=True)
         traceback.print_exc()
 
-
-    logger.info('write_xml() prepare programme_list')
+    logger.info('write_epg_xml() prepare programme_list')
     try:
         for programme in programme_list:
             f.write(programme.to_xml_string())
             #if programme.channel == 'ITV1Anglia.uk':
             #    logger.info("write_xml_plain_text(), programme.channel == ITV1Anglia.uk: %s" % programme)
-        logger.info('write_xml_plain_text() programme_list size: %d' % len(programme_list))
+        logger.info('write_epg_xml() programme_list size: %d' % len(programme_list))
     except Exception as e:
-        logger.error('ERROR in prepare programme in write_xml()', exc_info=True)
+        logger.error('ERROR in prepare programme in write_epg_xml()', exc_info=True)
         traceback.print_exc()
 
     f.write("</tv>\n")
@@ -414,12 +321,12 @@ def write_xml_plain_text(logger, channel_list, programme_list, request_host):
     f.close()
 
     file_size = os.path.getsize(EPG_ALL_CACHE_FILE_PATH)
-    logger.info("write_xml_plain_text(%s) done, file size: %s (%s)" % (EPG_ALL_CACHE_FILE_PATH, file_size, sizeof_fmt(file_size)))
+    logger.info("write_epg_xml(%s) done, file size: %s (%s)" % (EPG_ALL_CACHE_FILE_PATH, file_size, sizeof_fmt(file_size)))
 
     gzip_file(EPG_ALL_CACHE_FILE_PATH, EPG_ALL_GZ_CACHE_FILE_PATH)
 
     file_size = os.path.getsize(EPG_ALL_GZ_CACHE_FILE_PATH)
-    logger.info("write_xml_plain_text(%s) done, file size: %s (%s)" % (EPG_ALL_GZ_CACHE_FILE_PATH, file_size, sizeof_fmt(file_size)))
+    logger.info("write_epg_xml(%s) done, file size: %s (%s)" % (EPG_ALL_GZ_CACHE_FILE_PATH, file_size, sizeof_fmt(file_size)))
 
     return EPG_ALL_CACHE_FILE_PATH
 
@@ -430,27 +337,106 @@ def gzip_file(source_file, gz_file):
             shutil.copyfileobj(f_in, f_out)
 
 
-def process_not_present_m3u_entries(not_present_m3u_entries, channel_list):
-    for value in not_present_m3u_entries:
-        # If channel name in m3u has 'orig' term lets search without a term and update
-        if ' orig' in value.name:
-            name = value.name.replace(' orig', '')
-            for channel in channel_list:
-                for display_name in channel.display_name_list:
-                    if compare(display_name.text, name):
-                        list.append(NameItem(value.name))
-
-
 def num_sort(test_string):
     return list(map(int, re.findall(r'\d+', test_string)))[0]
+
+
+def get_new_m3u_file(logger):
+    logger.info("get_new_m3u_file()")
+
+    if os.path.exists(M3U_UPDATED_CACHE_FILE_PATH):
+        logger.info("get_new_m3u_file() remove existing file, %s" % M3U_UPDATED_CACHE_FILE_PATH)
+        os.remove(M3U_UPDATED_CACHE_FILE_PATH)
+    if os.path.exists(M3U_UPDATED_GZ_CACHE_FILE_PATH):
+        logger.info("get_new_m3u_file() remove existing file, %s" % M3U_UPDATED_GZ_CACHE_FILE_PATH)
+        os.remove(M3U_UPDATED_GZ_CACHE_FILE_PATH)
+
+    f = open(M3U_UPDATED_CACHE_FILE_PATH, 'w')
+    f.write("#EXTM3U\n")
+    return f
+
+
+def get_epg_file(logger, request_host):
+    logger.info('get_epg_file()')
+
+    if os.path.exists(EPG_ALL_CACHE_FILE_PATH):
+        logger.info("get_epg_file() remove existing file, %s" % EPG_ALL_CACHE_FILE_PATH)
+        os.remove(EPG_ALL_CACHE_FILE_PATH)
+    if os.path.exists(EPG_ALL_GZ_CACHE_FILE_PATH):
+        logger.info("get_epg_file() remove existing file, %s" % EPG_ALL_GZ_CACHE_FILE_PATH)
+        os.remove(EPG_ALL_GZ_CACHE_FILE_PATH)
+
+    f = open(EPG_ALL_CACHE_FILE_PATH, 'w')
+    f.write("<?xml version='1.0' encoding='UTF-8'?>\n")
+    f.write("<!DOCTYPE tv SYSTEM \"http://{url}/xmltv.dtd\">\n".format(url=request_host))
+    f.write("<tv generator-info-name=\"iptv-helper\" generator-info-url=\"https://github.com/Redwid/iptv-helper\">\n")
+
+    return f
+
+
+def finish_file(logger, f):
+    logger.info("finish_file(), file: %s" % f.name)
+
+    f.flush()
+    f.close()
+
+    file_size = os.path.getsize(f.name)
+    logger.info("finish_file(%s) done, file size: %s (%s)" % (f.name, file_size, sizeof_fmt(file_size)))
+
+    f_gz = f.name + ".gz"
+    gzip_file(f.name, f_gz)
+
+    file_size = os.path.getsize(f_gz)
+    logger.info("finish_file(%s) done, file size: %s (%s)" % (f_gz, file_size, sizeof_fmt(file_size)))
+
+
+def write_m3u_and_epg(logger, m3u_list, request_host):
+    logger.info("write_m3u_and_epg(), list: %d" % len(m3u_list))
+
+    m3u_file = get_new_m3u_file(logger)
+    logger.info('write_m3u_and_epg() prepare m3u_entries list')
+
+    channels = []
+    programs = []
+    try:
+        for m3u_item in m3u_list:
+            m3u_file.write(m3u_item.to_m3u_string())
+            m3u_item.add_channels_and_programs(channels, programs)
+        logger.info('write_m3u_and_epg() m3u_item size: %d' % len(m3u_list))
+    except Exception as e:
+        logger.error('ERROR in write_m3u_and_epg()', exc_info=True)
+        traceback.print_exc()
+    finish_file(logger, m3u_file)
+
+    epg_file = get_epg_file(logger, request_host)
+    logger.info('write_m3u_and_epg() prepare channels')
+    try:
+        for channel_item in channels:
+            epg_file.write(channel_item.to_xml_string())
+        logger.info('write_m3u_and_epg() channels done: %d' % len(channels))
+    except Exception as e:
+        logger.error('ERROR in prepare channels in write_m3u_and_epg()', exc_info=True)
+        traceback.print_exc()
+
+    logger.info('write_epg_xml() prepare programmes')
+    try:
+        for programme_item in programs:
+            epg_file.write(programme_item.to_xml_string())
+        logger.info('write_m3u_and_epg() programms size: %d' % len(programs))
+    except Exception as e:
+        logger.error('ERROR in prepare programme in write_m3u_and_epg()', exc_info=True)
+        traceback.print_exc()
+
+    epg_file.write("</tv>\n")
+    finish_file(logger, epg_file)
 
 
 def filter_epg(logger, request_host):
     logger.info("filter_epg(), request_host: %s" % request_host)
     start_time = time.time()
-    m3u_entries = parse_m3u(logger, M3U_CACHE_FILE_PATH)
+    m3u_list = parse_m3u(logger, M3U_CACHE_FILE_PATH)
 
-    channel_list = []
+    channel_map = {}
     programme_list = []
     downloaded = glob.glob(CACHE_FOLDER + 'epg-*.xml')
     if EPG_ALL_CACHE_FILE_PATH in downloaded:
@@ -458,22 +444,25 @@ def filter_epg(logger, request_host):
     downloaded = sorted(downloaded, key=num_sort)
     # downloaded = [CACHE_FOLDER + 'epg-1.xml']
 
+    # processed_m3u_entries = m3u_list.copy()
     for file in downloaded:
         if EPG_ALL_FILE not in file:
             try:
-                load_xmlt(logger, m3u_entries, file, channel_list, programme_list)
+                load_xmlt(logger, m3u_list, file, channel_map, programme_list)
             except Exception as e:
                 logger.error('filter_epg(), unexpected exception: %s' % repr(e))
                 traceback.print_exc()
 
-    logger.info('filter_epg(), m3u_entries: %d channel_list size: %d, programme_list: %d, time: %sms ' % (
-    len(m3u_entries), len(channel_list), len(programme_list), time.time() - start_time))
+    logger.info('filter_epg(), m3u_list: %d channel_map size: %d, programme_list: %d, time: %sms ' % (
+    len(m3u_list), len(channel_map), len(programme_list), time.time() - start_time))
 
-    logger.info("filter_epg(), Not preset (count %d):" % len(m3u_entries))
+    logger.info("filter_epg(), Not preset:")
     index = 0
-    for value in m3u_entries:
-        logger.info("   %d. %s" % (index, value))
-        index += 1
+    for value in m3u_list:
+        if value.get_programs_count() == 0:
+            logger.info("   %d. %s" % (index, value))
+            index += 1
+    logger.info("filter_epg(), Not preset count: %d" % index)
 
-    file_path = write_xml_plain_text(logger, channel_list, programme_list, request_host)
-    logger.info("filter_epg(), file_path: %s, done in: %s" % (file_path, time.time() - start_time))
+    write_m3u_and_epg(logger, m3u_list, request_host)
+    logger.info("filter_epg(), done in: %s" % (time.time() - start_time))

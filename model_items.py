@@ -5,6 +5,7 @@ from lxml import etree as ET
 
 # all_categories = []
 
+
 class M3uItem:
     def __init__(self, m3u_fields):
         self.tvg_name = None
@@ -12,10 +13,13 @@ class M3uItem:
         self.tvg_logo = None
         self.group_title = None
         self.name = None
+        self.name_no_orig = None
         self.url = None
         self.group_idx = 0
         self.channel_idx = -1
         self.tvg_rec = -1
+        self.channels = {}
+        self.max_programs = None
 
         if m3u_fields is not None:
             try:
@@ -42,6 +46,8 @@ class M3uItem:
                 index = m3u_fields.find(',')
                 if index != -1:
                     self.name = m3u_fields[index + 1:]
+                    if ' orig' in self.name or ' Orig' in self.name:
+                        self.name_no_orig = self.name.replace(' Original', '').replace(' original', '').replace(' Orig', '').replace(' orig', '')
             except AttributeError as e:
                 pass
 
@@ -56,10 +62,92 @@ class M3uItem:
             return ""
         return string
 
+    def process(self, channel_item):
+        if channel_item in self.channels:
+            return True
+
+        for display_name in channel_item.display_name_list:
+
+            if self.name_no_orig is not None and self.compare(display_name.text, self.name_no_orig):
+                self.channels[channel_item.id] = channel_item
+                insert_value_if_needed(channel_item.display_name_list, self.name)
+                return True
+
+            if self.compare(display_name.text, self.name) or self.compare(display_name.text, self.tvg_name):
+                self.channels[channel_item.id] = channel_item
+                return True
+
+        return False
+
+    def compare(self, string1, string2):
+        if string1 is None or string2 is None:
+            return False
+
+        if string1 == string2 or string1.lower() == string2.lower():
+            return True
+
+        return False
+
+    def get_logo(self):
+        if self.tvg_logo is not None or self.tvg_logo != "":
+            return self.tvg_logo
+        for key, value in self.channels.items():
+            if value.icon is not None or value.icon != "":
+                return value.icon
+        return None
+
+    def to_m3u_string(self):
+        logo = self.get_logo()
+
+        tvg_id = self.tvg_id
+        if tvg_id is None:
+            max_programs = self.get_max_programs()
+            if max_programs is not None:
+                tvg_id = max_programs.id
+
+        result = "#EXTINF:-1"
+        if tvg_id is not None:
+            result += " tvg-id=\"{tvg_id}\"".format(tvg_id=tvg_id)
+
+        if logo is not None:
+            result += " tvg-logo=\"{tvg_logo}\"".format(tvg_logo=logo)
+
+        if tvg_id is None and logo is None:
+            result += " tvg-rec=\"0\""
+
+        result += ",{name}\n" \
+                  "#EXTGRP:{tvg_group}\n" \
+                  "{url}\n".format(name=self.name, tvg_group=self.group_title, url=self.url)
+        return result
+
+    def get_programs_count(self):
+        count = 0
+        for key, value in self.channels.items():
+            # print("key: %s, value: %s" % (key, value))
+            count += len(value.programs)
+        return count
+
+    def add_channels_and_programs(self, channels: list, programs: list):
+        max_programs = self.get_max_programs()
+
+        if max_programs is not None:
+            channels.append(max_programs)
+            programs.extend(max_programs.programs)
+
+    def get_max_programs(self):
+        if self.max_programs is None:
+            for key, value in self.channels.items():
+                len_programs = len(value.programs)
+                if self.max_programs is None:
+                    self.max_programs = value
+                elif len_programs > 0 and len_programs > len(self.max_programs.programs):
+                    self.max_programs = value
+        return self.max_programs
+
     def __str__(self):
         return 'M3uItem[name:' + self.get_string(self.name) + ', group_title:' + self.get_string(self.group_title) + \
                ', tvg_name:' + self.get_string(self.tvg_name) + ', tvg_id:' + self.get_string(self.tvg_id) + \
-               ', tvg_logo:' + self.get_string(self.tvg_logo) + ']'
+               ', tvg_logo:' + self.get_string(self.tvg_logo) + ', channels:' + str(len(self.channels)) + ', programs: ' + str(self.get_programs_count()) + ']'
 
 
 class ChannelItem:
@@ -68,7 +156,7 @@ class ChannelItem:
         self.text = None
         self.icon = None
         self.display_name_list = []
-
+        self.programs = []
         self.id = xmlt_fields.attrib['id']
 
         for child in xmlt_fields:
@@ -111,9 +199,13 @@ class ChannelItem:
             return display_name
         return ''
 
+    def add_program(self, program):
+        self.programs.append(program)
+
     def __str__(self):
         return 'ChannelItem[id:' + str(self.id) + ', text:' + str(self.text) + \
-               ', display_name_list:' + ', '.join(map(str, self.display_name_list)) + ', icon:' + str(self.icon) + ']'
+               ', display_name_list:' + ', '.join(map(str, self.display_name_list)) + ', icon:' + str(self.icon) + \
+               ', programs:' + str(len(self.programs)) +']'
 
 
 class NameItem:
@@ -202,4 +294,14 @@ def xml_escape(str_xml: str):
     str_xml = str_xml.replace("\"", "&quot;")
     str_xml = str_xml.replace("'", "&apos;")
     return str_xml
+
+
+def insert_value_if_needed(list, value_to_insert):
+    for value in list:
+        if value.text == value_to_insert:
+            return False
+
+    list.append(NameItem(value_to_insert))
+    return True
+
 

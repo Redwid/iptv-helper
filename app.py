@@ -4,7 +4,7 @@ import os
 from flask import Flask, request, send_file
 from utils import download_file, download_all_epgs, M3U_CACHE_FILE_PATH, \
     M3U_FILE, filter_epg, EPG_ALL_CACHE_FILE_PATH, EPG_ALL_GZ_CACHE_FILE_PATH, M3U_GZ_CACHE_FILE_PATH, gzip_file, \
-    sizeof_fmt, CACHE_FOLDER
+    sizeof_fmt, CACHE_FOLDER, M3U_UPDATED_CACHE_FILE_PATH
 from logger import get_logger
 
 m3u_url = os.getenv('M3U_URL', "https://no-m3u-url-provided")
@@ -68,6 +68,12 @@ def epg2_gz():
 def ttv():
     logger.info('/ttv')
     return send_file(M3U_CACHE_FILE_PATH, etag=True)
+
+
+@app.route('/ttv2', methods=['GET'])
+def ttv2():
+    logger.info('/ttv2')
+    return send_file(M3U_UPDATED_CACHE_FILE_PATH, etag=True)
 
 
 @app.route('/ttv.gz', methods=['GET'])
