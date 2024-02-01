@@ -50,7 +50,11 @@ sudo docker build -t redwid/iptv-helper .
 
 ## Run docker container
 ````
-sudo docker run -d --restart=unless-stopped --name iptv-helper -p 101:101 --env-file .env redwid/iptv-helper
+sudo docker run -d --restart=unless-stopped \
+            --name iptv-helper \ 
+            --env-file .env \ 
+            -p 101:101 \            
+            redwid/iptv-helper
 ````
 
 ## Verification
