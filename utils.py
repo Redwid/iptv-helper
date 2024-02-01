@@ -426,6 +426,8 @@ def filter_epg(logger, request_host):
 
     logger.info('filter_epg(), m3u_list: %d channel_map size: %d, programme_list: %d, time: %sms ' % (
     len(m3u_list), len(channel_map), len(programme_list), time.time() - start_time))
+    channel_map.clear()
+    programme_list.clear()
 
     logger.info("filter_epg(), Not preset:")
     index = 0
