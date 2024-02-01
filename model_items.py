@@ -135,13 +135,6 @@ class M3uItem:
             count += value.get_programs_count()
         return count
 
-    def get_all_programs_count(self):
-        count = 0
-        for key, value in self.channels.items():
-            # print("key: %s, value: %s" % (key, value))
-            count += len(value.programs)
-        return count
-
     def add_channels_and_programs(self, channels: list, programs: list):
         max_programs = self.get_max_programs()
 
@@ -163,7 +156,7 @@ class M3uItem:
         return 'M3uItem[name:' + self.get_string(self.name) + ', group_title:' + self.get_string(self.group_title) + \
                ', tvg_name:' + self.get_string(self.tvg_name) + ', tvg_id:' + self.get_string(self.get_tvg_id()) + \
                ', tvg_logo:' + self.get_string(self.tvg_logo) + ', channels:' + str(len(self.channels)) + \
-               ', programs: ' + str(self.get_programs_count()) + ' (all:' + str(self.get_all_programs_count()) + ')]'
+               ', programs: ' + str(self.get_programs_count()) + ']'
 
 
 class ChannelItem:
@@ -292,14 +285,6 @@ class ProgrammeItem:
             add_sub_element('category', category, item)
 
     def to_xml_string(self, dates: dict):
-        if self.is_in_the_past:
-            dates['is_in_the_past.count'] += 1
-            return None
-
-        if self.is_in_the_future_one_week:
-            dates['is_in_the_future_one_week.count'] += 1
-            return None
-
         if dates['start.oldest'] is None or (self.start_date is not None and self.start_date < dates['start.oldest']):
             dates['start.oldest'] = self.start_date
             dates['start.oldest.str'] = self.start

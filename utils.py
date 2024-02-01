@@ -264,6 +264,7 @@ def load_xmlt(logger, today, today_plus_one_week, m3u_list, epg_file, channel_ma
     logger.info("load_xmlt(%s)" % epg_file)
     start_time = time.time()
 
+    count = 0
     for event, element in ET.iterparse(epg_file, tag=('channel', 'programme'), huge_tree=True):
         if element.tag == 'channel':
             channel_item = ChannelItem(element)
@@ -273,19 +274,22 @@ def load_xmlt(logger, today, today_plus_one_week, m3u_list, epg_file, channel_ma
             if channel_present:
                 channel_map[channel_item.id] = channel_item
                 # logger.info('load_xmlt(%s), channel_list size: %d' % (epg_file, len(channel_list)))
+            count += 1
 
-        if element.tag == 'programme':
-            # if element.attrib['channel'] == 'ITV1Anglia.uk':
-            #     logger.info("load_xmlt(%s), element.attrib['channel'] == ITV1Anglia.uk: %s" % (epg_file, element))
-
+        elif element.tag == 'programme':
             channel_id = element.attrib['channel']
             if channel_id in channel_map:
                 program_item = ProgrammeItem(logger, today, today_plus_one_week, element)
-                programme_list.append(program_item)
-                channel_map[channel_id].add_program(program_item)
-                # logger.info('load_xmlt(%s), programme_list size: %d' % (epg_file, len(programme_list)))
+                if not program_item.is_in_the_past and not program_item.is_in_the_future_one_week:
+                    programme_list.append(program_item)
+                    channel_map[channel_id].add_program(program_item)
+                    # logger.info('load_xmlt(%s), programme_list size: %d' % (epg_file, len(programme_list)))
+                count += 1
 
         element.clear()
+        if count > 20000:
+            gc.collect()
+            count = 0
 
     logger.info('load_xmlt(%s), channel_map size: %d, programme_list: %d, time: %sms ' % (epg_file, len(channel_map), len(programme_list), time.time() - start_time))
     gc.collect()
@@ -379,7 +383,7 @@ def write_m3u_and_epg(logger, m3u_list, request_host):
         traceback.print_exc()
 
     logger.info('write_epg_xml() prepare programmes')
-    dates = {'start.oldest': None, 'start.newest': None, 'stop.oldest': None, 'stop.newest': None, 'is_in_the_past.count': 0, 'is_in_the_future_one_week.count': 0}
+    dates = {'start.oldest': None, 'start.newest': None, 'stop.oldest': None, 'stop.newest': None}
     try:
         for programme_item in programs:
             string = programme_item.to_xml_string(dates)
@@ -390,7 +394,6 @@ def write_m3u_and_epg(logger, m3u_list, request_host):
         logger.info('write_m3u_and_epg() start.oldest.str: %s, start.newest.str: %s' % (str(dates['start.oldest.str']), str(dates['start.newest.str'])))
         logger.info('write_m3u_and_epg() stop.oldest: %s, stop.newest: %s' % (str(dates['stop.oldest']), str(dates['stop.newest'])))
         logger.info('write_m3u_and_epg() stop.oldest.str: %s, stop.newest.str: %s' % (str(dates['stop.oldest.str']), str(dates['stop.newest.str'])))
-        logger.info('write_m3u_and_epg() is_in_the_past.count: %d, is_in_the_future_one_week.count: %s' % (dates['is_in_the_past.count'], dates['is_in_the_future_one_week.count']))
     except Exception as e:
         logger.error('ERROR in prepare programme in write_m3u_and_epg()', exc_info=True)
         traceback.print_exc()
