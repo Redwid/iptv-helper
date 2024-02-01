@@ -2,6 +2,7 @@
 import gc
 import gzip
 import traceback
+from datetime import date, timedelta
 
 import requests
 import codecs
@@ -216,10 +217,12 @@ def is_channel_present_in_list_by_id(channel_list, channel_item):
 
 
 def is_channel_present_in_m3u(channel_item, m3u_list):
+    return_value = False
     for value in m3u_list:
         if value.process(channel_item):
-            return True
-    return False
+            if not return_value:
+                return_value = True
+    return return_value
 
 
 def insert_value_if_needed(list, value_to_insert):
@@ -248,10 +251,16 @@ def add_custom_entries(channel_item):
         channel_item.display_name_list.append(NameItem('Че!', 'ru'))
     if channel_item.id == '5kanal-ru-pl4':
         channel_item.display_name_list.append(NameItem('5 канал +4', 'ru'))
+    if channel_item.id == '1803':
+        channel_item.display_name_list.append(NameItem('Любимое ТВ HD', 'ru'))
+    if channel_item.id == '8242':
+        channel_item.display_name_list.append(NameItem('BBC 1 HD', 'en'))
+    if channel_item.id == '8243':
+        channel_item.display_name_list.append(NameItem('BBC 2 HD', 'en'))
     pass
 
 
-def load_xmlt(logger, m3u_list, epg_file, channel_map, programme_list):
+def load_xmlt(logger, today, today_plus_one_week, m3u_list, epg_file, channel_map, programme_list):
     logger.info("load_xmlt(%s)" % epg_file)
     start_time = time.time()
 
@@ -271,7 +280,7 @@ def load_xmlt(logger, m3u_list, epg_file, channel_map, programme_list):
 
             channel_id = element.attrib['channel']
             if channel_id in channel_map:
-                program_item = ProgrammeItem(element)
+                program_item = ProgrammeItem(logger, today, today_plus_one_week, element)
                 programme_list.append(program_item)
                 channel_map[channel_id].add_program(program_item)
                 # logger.info('load_xmlt(%s), programme_list size: %d' % (epg_file, len(programme_list)))
@@ -280,55 +289,6 @@ def load_xmlt(logger, m3u_list, epg_file, channel_map, programme_list):
 
     logger.info('load_xmlt(%s), channel_map size: %d, programme_list: %d, time: %sms ' % (epg_file, len(channel_map), len(programme_list), time.time() - start_time))
     gc.collect()
-
-
-def write_epg_xml(logger, channel_list, programme_list, request_host):
-    logger.info('write_epg_xml()')
-
-    if os.path.exists(EPG_ALL_CACHE_FILE_PATH):
-        logger.info("write_epg_xml() remove existing file, %s" % EPG_ALL_CACHE_FILE_PATH)
-        os.remove(EPG_ALL_CACHE_FILE_PATH)
-
-    f = open(EPG_ALL_CACHE_FILE_PATH, 'w')
-    f.write("<?xml version='1.0' encoding='UTF-8'?>\n")
-    f.write("<!DOCTYPE tv SYSTEM \"http://{url}/xmltv.dtd\">\n".format(url=request_host))
-    f.write("<tv generator-info-name=\"iptv-helper\" generator-info-url=\"https://github.com/Redwid/iptv-helper\">\n")
-
-    logger.info('write_epg_xml() prepare channels list')
-    try:
-        for channel_item in channel_list:
-            f.write(channel_item.to_xml_string())
-            #if channel_item.id == 'ITV1Anglia.uk':
-            #    logger.info("write_xml_plain_text(), channel_item.id == ITV1Anglia.uk: %s" % channel_item)
-        logger.info('write_epg_xml() channel_list size: %d' % len(channel_list))
-    except Exception as e:
-        logger.error('ERROR in prepare programme in write_epg_xml()', exc_info=True)
-        traceback.print_exc()
-
-    logger.info('write_epg_xml() prepare programme_list')
-    try:
-        for programme in programme_list:
-            f.write(programme.to_xml_string())
-            #if programme.channel == 'ITV1Anglia.uk':
-            #    logger.info("write_xml_plain_text(), programme.channel == ITV1Anglia.uk: %s" % programme)
-        logger.info('write_epg_xml() programme_list size: %d' % len(programme_list))
-    except Exception as e:
-        logger.error('ERROR in prepare programme in write_epg_xml()', exc_info=True)
-        traceback.print_exc()
-
-    f.write("</tv>\n")
-    f.flush()
-    f.close()
-
-    file_size = os.path.getsize(EPG_ALL_CACHE_FILE_PATH)
-    logger.info("write_epg_xml(%s) done, file size: %s (%s)" % (EPG_ALL_CACHE_FILE_PATH, file_size, sizeof_fmt(file_size)))
-
-    gzip_file(EPG_ALL_CACHE_FILE_PATH, EPG_ALL_GZ_CACHE_FILE_PATH)
-
-    file_size = os.path.getsize(EPG_ALL_GZ_CACHE_FILE_PATH)
-    logger.info("write_epg_xml(%s) done, file size: %s (%s)" % (EPG_ALL_GZ_CACHE_FILE_PATH, file_size, sizeof_fmt(file_size)))
-
-    return EPG_ALL_CACHE_FILE_PATH
 
 
 def gzip_file(source_file, gz_file):
@@ -360,10 +320,10 @@ def get_epg_file(logger, request_host):
     logger.info('get_epg_file()')
 
     if os.path.exists(EPG_ALL_CACHE_FILE_PATH):
-        logger.info("get_epg_file() remove existing file, %s" % EPG_ALL_CACHE_FILE_PATH)
+        logger.info("get_epg_file(), remove existing file: %s" % EPG_ALL_CACHE_FILE_PATH)
         os.remove(EPG_ALL_CACHE_FILE_PATH)
     if os.path.exists(EPG_ALL_GZ_CACHE_FILE_PATH):
-        logger.info("get_epg_file() remove existing file, %s" % EPG_ALL_GZ_CACHE_FILE_PATH)
+        logger.info("get_epg_file(), remove existing file: %s" % EPG_ALL_GZ_CACHE_FILE_PATH)
         os.remove(EPG_ALL_GZ_CACHE_FILE_PATH)
 
     f = open(EPG_ALL_CACHE_FILE_PATH, 'w')
@@ -419,10 +379,18 @@ def write_m3u_and_epg(logger, m3u_list, request_host):
         traceback.print_exc()
 
     logger.info('write_epg_xml() prepare programmes')
+    dates = {'start.oldest': None, 'start.newest': None, 'stop.oldest': None, 'stop.newest': None, 'is_in_the_past.count': 0, 'is_in_the_future_one_week.count': 0}
     try:
         for programme_item in programs:
-            epg_file.write(programme_item.to_xml_string())
-        logger.info('write_m3u_and_epg() programms size: %d' % len(programs))
+            string = programme_item.to_xml_string(dates)
+            if string is not None:
+                epg_file.write(string)
+        logger.info('write_m3u_and_epg() programs size: %d' % len(programs))
+        logger.info('write_m3u_and_epg() start.oldest: %s, start.newest: %s' % (str(dates['start.oldest']), str(dates['start.newest'])))
+        logger.info('write_m3u_and_epg() start.oldest.str: %s, start.newest.str: %s' % (str(dates['start.oldest.str']), str(dates['start.newest.str'])))
+        logger.info('write_m3u_and_epg() stop.oldest: %s, stop.newest: %s' % (str(dates['stop.oldest']), str(dates['stop.newest'])))
+        logger.info('write_m3u_and_epg() stop.oldest.str: %s, stop.newest.str: %s' % (str(dates['stop.oldest.str']), str(dates['stop.newest.str'])))
+        logger.info('write_m3u_and_epg() is_in_the_past.count: %d, is_in_the_future_one_week.count: %s' % (dates['is_in_the_past.count'], dates['is_in_the_future_one_week.count']))
     except Exception as e:
         logger.error('ERROR in prepare programme in write_m3u_and_epg()', exc_info=True)
         traceback.print_exc()
@@ -445,10 +413,13 @@ def filter_epg(logger, request_host):
     # downloaded = [CACHE_FOLDER + 'epg-1.xml']
 
     # processed_m3u_entries = m3u_list.copy()
+    today = date.today()
+    today_plus_one_week = today + timedelta(days=7)
+    logger.info('filter_epg(), today: %s, today_plus_one_week: %s' % (today, today_plus_one_week))
     for file in downloaded:
         if EPG_ALL_FILE not in file:
             try:
-                load_xmlt(logger, m3u_list, file, channel_map, programme_list)
+                load_xmlt(logger, today, today_plus_one_week, m3u_list, file, channel_map, programme_list)
             except Exception as e:
                 logger.error('filter_epg(), unexpected exception: %s' % repr(e))
                 traceback.print_exc()

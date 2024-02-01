@@ -1,9 +1,13 @@
 #!/usr/bin/env python -*- coding: utf-8 -*-
 import re
+from datetime import datetime
+
 # import xml.etree.ElementTree as ET
 from lxml import etree as ET
 
 # all_categories = []
+
+date_format = '%Y%m%d%H%M%S %z'
 
 
 class M3uItem:
@@ -99,11 +103,7 @@ class M3uItem:
     def to_m3u_string(self):
         logo = self.get_logo()
 
-        tvg_id = self.tvg_id
-        if tvg_id is None:
-            max_programs = self.get_max_programs()
-            if max_programs is not None:
-                tvg_id = max_programs.id
+        tvg_id = self.get_tvg_id()
 
         result = "#EXTINF:-1"
         if tvg_id is not None:
@@ -120,7 +120,22 @@ class M3uItem:
                   "{url}\n".format(name=self.name, tvg_group=self.group_title, url=self.url)
         return result
 
+    def get_tvg_id(self):
+        tvg_id = self.tvg_id
+        if tvg_id is None:
+            max_programs = self.get_max_programs()
+            if max_programs is not None:
+                tvg_id = max_programs.id
+        return tvg_id
+
     def get_programs_count(self):
+        count = 0
+        for key, value in self.channels.items():
+            # print("key: %s, value: %s" % (key, value))
+            count += value.get_programs_count()
+        return count
+
+    def get_all_programs_count(self):
         count = 0
         for key, value in self.channels.items():
             # print("key: %s, value: %s" % (key, value))
@@ -137,17 +152,18 @@ class M3uItem:
     def get_max_programs(self):
         if self.max_programs is None:
             for key, value in self.channels.items():
-                len_programs = len(value.programs)
+                len_programs = value.get_programs_count()
                 if self.max_programs is None:
                     self.max_programs = value
-                elif len_programs > 0 and len_programs > len(self.max_programs.programs):
+                elif len_programs > 0 and len_programs > self.max_programs.get_programs_count():
                     self.max_programs = value
         return self.max_programs
 
     def __str__(self):
         return 'M3uItem[name:' + self.get_string(self.name) + ', group_title:' + self.get_string(self.group_title) + \
-               ', tvg_name:' + self.get_string(self.tvg_name) + ', tvg_id:' + self.get_string(self.tvg_id) + \
-               ', tvg_logo:' + self.get_string(self.tvg_logo) + ', channels:' + str(len(self.channels)) + ', programs: ' + str(self.get_programs_count()) + ']'
+               ', tvg_name:' + self.get_string(self.tvg_name) + ', tvg_id:' + self.get_string(self.get_tvg_id()) + \
+               ', tvg_logo:' + self.get_string(self.tvg_logo) + ', channels:' + str(len(self.channels)) + \
+               ', programs: ' + str(self.get_programs_count()) + ' (all:' + str(self.get_all_programs_count()) + ')]'
 
 
 class ChannelItem:
@@ -202,6 +218,13 @@ class ChannelItem:
     def add_program(self, program):
         self.programs.append(program)
 
+    def get_programs_count(self):
+        count = 0
+        for program in self.programs:
+            if not program.is_in_the_past:
+                count += 1
+        return count
+
     def __str__(self):
         return 'ChannelItem[id:' + str(self.id) + ', text:' + str(self.text) + \
                ', display_name_list:' + ', '.join(map(str, self.display_name_list)) + ', icon:' + str(self.icon) + \
@@ -222,10 +245,25 @@ class NameItem:
 
 
 class ProgrammeItem:
-    def __init__(self, xmlt_fields):
+    def __init__(self, logger, today, today_plus_one_week, xmlt_fields):
         self.start = xmlt_fields.attrib['start']
         self.stop = xmlt_fields.attrib['stop']
         self.channel = xmlt_fields.attrib['channel']
+        self.is_in_the_past = False
+        self.is_in_the_future_one_week = False
+
+        try:
+            self.start_date = datetime.strptime(self.start, date_format).date()
+            self.is_in_the_future_one_week = self.start_date is not None and today_plus_one_week is not None and self.start_date > today_plus_one_week
+        except Exception as error:
+            logger.error("Error in ProgrammeItem, can't parse start: %s, error: %s" % (self.start, error))
+            self.start_date = None
+        try:
+            self.stop_date = datetime.strptime(self.stop, date_format).date()
+            self.is_in_the_past = self.stop_date is not None and today is not None and today > self.stop_date
+        except Exception as error:
+            logger.error("Error in ProgrammeItem, can't parse stop: %s, error: %s" % (self.stop, error))
+            self.stop_date = None
 
         self.title_list = []
         self.desc_list = []
@@ -253,7 +291,31 @@ class ProgrammeItem:
         for category in self.category_list:
             add_sub_element('category', category, item)
 
-    def to_xml_string(self):
+    def to_xml_string(self, dates: dict):
+        if self.is_in_the_past:
+            dates['is_in_the_past.count'] += 1
+            return None
+
+        if self.is_in_the_future_one_week:
+            dates['is_in_the_future_one_week.count'] += 1
+            return None
+
+        if dates['start.oldest'] is None or (self.start_date is not None and self.start_date < dates['start.oldest']):
+            dates['start.oldest'] = self.start_date
+            dates['start.oldest.str'] = self.start
+
+        if dates['start.newest'] is None or (self.start_date is not None and self.start_date > dates['start.newest']):
+            dates['start.newest'] = self.start_date
+            dates['start.newest.str'] = self.start
+
+        if dates['stop.oldest'] is None or (self.stop_date is not None and self.stop_date < dates['stop.oldest']):
+            dates['stop.oldest'] = self.stop_date
+            dates['stop.oldest.str'] = self.stop
+
+        if dates['stop.newest'] is None or (self.stop_date is not None and self.stop_date > dates['stop.newest']):
+            dates['stop.newest'] = self.stop_date
+            dates['stop.newest.str'] = self.stop
+
         result = "\t<programme start=\"{start}\" stop=\"{stop}\" channel=\"{id}\">\n".format(start=self.start, stop=self.stop, id=self.channel)
         for category in self.category_list:
             # if category.text not in all_categories:
