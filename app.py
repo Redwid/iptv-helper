@@ -4,17 +4,21 @@ import os
 from flask import Flask, request, send_file
 from utils import download_file, download_all_epgs, M3U_CACHE_FILE_PATH, \
     M3U_FILE, filter_epg, EPG_ALL_CACHE_FILE_PATH, EPG_ALL_GZ_CACHE_FILE_PATH, M3U_GZ_CACHE_FILE_PATH, gzip_file, \
-    sizeof_fmt, CACHE_FOLDER, M3U_UPDATED_CACHE_FILE_PATH
+    sizeof_fmt, CACHE_FOLDER, M3U_UPDATED_CACHE_FILE_PATH, M3U_UPDATED_GZ_CACHE_FILE_PATH
 from logger import get_logger
 
 m3u_url = os.getenv('M3U_URL', "https://no-m3u-url-provided")
-tv_epg_urls = ['https://iptvx.one/epg/epg.xml.gz',
+tv_epg_urls = ['https://epgx.site/epg_noarch.xml.gz',
                'http://www.teleguide.info/download/new3/xmltv.xml.gz',
                'http://programtv.ru/xmltv.xml.gz',
                'https://raw.githubusercontent.com/dp247/Freeview-EPG/master/epg.xml',
                'http://downloads.epg.today/free/FreeRu-Cis.xml.gz',
                'http://downloads.epg.today/free/wefree.xml.gz',
                'https://runigma.com.ua/EPG/IPTV/epg-iptv.xml.gz',
+               'https://www.bevy.be/bevyfiles/spain.xml',
+               'https://www.bevy.be/bevyfiles/unitedkingdom.xml.gz',
+               # 'https://www.bevy.be/bevyfiles/unitedkingdompremium1.xml.gz',
+               # 'https://epgshare01.online/epgshare01/epg_ripper_CA1.xml.gz',
                'http://epg.it999.ru/edem.xml.gz'
                ]
 
@@ -76,10 +80,16 @@ def ttv2():
     return send_file(M3U_UPDATED_CACHE_FILE_PATH, etag=True)
 
 
-@app.route('/ttv.gz', methods=['GET'])
-def ttv_gz():
-    logger.info('/ttv.gz')
-    return send_file(M3U_GZ_CACHE_FILE_PATH, etag=True)
+@app.route('/ttv2.m3u8', methods=['GET'])
+def ttv2_m3u8():
+    logger.info('/ttv2.m3u8')
+    return send_file(M3U_UPDATED_CACHE_FILE_PATH, etag=True)
+
+
+@app.route('/ttv2.gz', methods=['GET'])
+def ttv2_gz():
+    logger.info('/ttv2.gz')
+    return send_file(M3U_UPDATED_GZ_CACHE_FILE_PATH, etag=True)
 
 
 @app.route('/xmltv.dtd', methods=['GET'])

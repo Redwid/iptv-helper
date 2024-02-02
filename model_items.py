@@ -18,6 +18,7 @@ class M3uItem:
         self.group_title = None
         self.name = None
         self.name_no_orig = None
+        self.name_no_dot_uk = None
         self.url = None
         self.group_idx = 0
         self.channel_idx = -1
@@ -52,6 +53,8 @@ class M3uItem:
                     self.name = m3u_fields[index + 1:]
                     if ' orig' in self.name or ' Orig' in self.name:
                         self.name_no_orig = self.name.replace(' Original', '').replace(' original', '').replace(' Orig', '').replace(' orig', '')
+                    elif self.name.endswith('.uk'):
+                        self.name_no_dot_uk = self.name.replace(' .uk', '')
             except AttributeError as e:
                 pass
 
@@ -73,6 +76,11 @@ class M3uItem:
         for display_name in channel_item.display_name_list:
 
             if self.name_no_orig is not None and self.compare(display_name.text, self.name_no_orig):
+                self.channels[channel_item.id] = channel_item
+                insert_value_if_needed(channel_item.display_name_list, self.name)
+                return True
+
+            if self.name_no_dot_uk is not None and self.compare(display_name.text, self.name_no_dot_uk):
                 self.channels[channel_item.id] = channel_item
                 insert_value_if_needed(channel_item.display_name_list, self.name)
                 return True

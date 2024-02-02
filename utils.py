@@ -234,29 +234,66 @@ def insert_value_if_needed(list, value_to_insert):
     return True
 
 
+def display_list_has_language(list, param):
+    for item in list:
+        if item.lang is not None and item.lang == param:
+            return True
+    return False
+
+
 def add_custom_entries(channel_item):
     if channel_item.id == 'ITV1Anglia.uk':
         channel_item.display_name_list.append(NameItem('itv 1 HD', 'en'))
-    if channel_item.id == 'ITV2.uk':
+    elif channel_item.id == 'ITV2.uk':
         channel_item.display_name_list.append(NameItem('itv 2 HD', 'en'))
-    if channel_item.id == 'ITV4.uk':
+    elif channel_item.id == 'ITV4.uk':
         channel_item.display_name_list.append(NameItem('itv 4', 'en'))
-    if channel_item.id == 'ITV4Plus1.uk':
+    elif channel_item.id == 'ITV4Plus1.uk':
         channel_item.display_name_list.append(NameItem('itv 4 +1', 'en'))
-    if channel_item.id == 'ITV3Plus1.uk':
+    elif channel_item.id == 'ITV3Plus1.uk':
         channel_item.display_name_list.append(NameItem('itv 3 +1', 'en'))
-    if channel_item.id == 'ITVBe.uk':
+    elif channel_item.id == 'ITVBe.uk':
         channel_item.display_name_list.append(NameItem('itv BE', 'en'))
-    if channel_item.id == '1598':
+    elif channel_item.id == '1598':
         channel_item.display_name_list.append(NameItem('Че!', 'ru'))
-    if channel_item.id == '5kanal-ru-pl4':
+    elif channel_item.id == '5kanal-ru-pl4':
         channel_item.display_name_list.append(NameItem('5 канал +4', 'ru'))
-    if channel_item.id == '1803':
+    elif channel_item.id == '1803':
         channel_item.display_name_list.append(NameItem('Любимое ТВ HD', 'ru'))
-    if channel_item.id == '8242':
+    elif channel_item.id == '8242':
         channel_item.display_name_list.append(NameItem('BBC 1 HD', 'en'))
-    if channel_item.id == '8243':
+    elif channel_item.id == '8243':
         channel_item.display_name_list.append(NameItem('BBC 2 HD', 'en'))
+    elif channel_item.id == 'BBCALBAHD.uk':
+        channel_item.display_name_list.append(NameItem('BBC Alba HD', 'en'))
+    elif channel_item.id == 'BBCOne.uk':
+        channel_item.display_name_list.append(NameItem('BBC First HD', 'en'))
+    elif channel_item.id == 'M+ Golf':
+        channel_item.display_name_list.append(NameItem('Movistar Golf HD ES', 'es'))
+    elif channel_item.id == 'M+ LALIGA TV':
+        channel_item.display_name_list.append(NameItem('Movistar LaLiga HD ES', 'es'))
+    elif channel_item.id == 'M+ Liga de Campeones':
+        channel_item.display_name_list.append(NameItem('Movistar Liga Campeones HD ES', 'es'))
+    elif channel_item.id == 'M+ Drama':
+        channel_item.display_name_list.append(NameItem('Movistar Drama ES', 'es'))
+    elif channel_item.id == 'El Toro TV':
+        channel_item.display_name_list.append(NameItem('TOROS ES', 'es'))
+    elif channel_item.id == 'Comedy Central' and display_list_has_language(channel_item.display_name_list, 'es'):
+        channel_item.display_name_list.append(NameItem('Comedy Central HD ES', 'es'))
+    elif channel_item.id == 'COSMO' and display_list_has_language(channel_item.display_name_list, 'es'):
+        channel_item.display_name_list.append(NameItem('Cosmopolitan HD ES', 'es'))
+    elif channel_item.id == 'GOL PLAY':
+        channel_item.display_name_list.append(NameItem('GOL ES', 'es'))
+    elif channel_item.id == 'Cuatro':
+        channel_item.display_name_list.append(NameItem('Cuatro HD ES', 'es'))
+    elif channel_item.id == 'Telecinco':
+        channel_item.display_name_list.append(NameItem('Telecinco HD ES', 'es'))
+    elif channel_item.id == 'Atreseries':
+        channel_item.display_name_list.append(NameItem('atreseries HD ES', 'es'))
+    elif channel_item.id == 'BE MAD':
+        channel_item.display_name_list.append(NameItem('BeMad tv HD ES', 'es'))
+    elif channel_item.id == 'Real Madrid TV':
+        channel_item.display_name_list.append(NameItem('Real Madrid TV HD ES', 'es'))
     pass
 
 
