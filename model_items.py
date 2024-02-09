@@ -320,10 +320,11 @@ class ProgrammeItem:
                 result += "\t\t<category lang=\"{lang}\">{name}</category>\n".format(name=xml_escape(category.text), lang=category.lang)
 
         for title in self.title_list:
-            if title.lang is None:
-                result += "\t\t<title>{name}</title>\n".format(name=xml_escape(title.text))
-            else:
-                result += "\t\t<title lang=\"{lang}\">{name}</title>\n".format(name=xml_escape(title.text), lang=title.lang)
+            if title.text is not None:
+                if title.lang is None:
+                    result += "\t\t<title>{name}</title>\n".format(name=xml_escape(title.text))
+                else:
+                    result += "\t\t<title lang=\"{lang}\">{name}</title>\n".format(name=xml_escape(title.text), lang=title.lang)
 
         for desc in self.desc_list:
             if desc.lang is None:
